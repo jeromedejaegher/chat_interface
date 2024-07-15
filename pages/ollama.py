@@ -1,12 +1,17 @@
+import subprocess as sp
+import streamlit as st
+import ollama
+
 from utils.ollama_utils import (
     preprocess_stream,
 )
 from utils.logger import custom_logger
-import streamlit as st
-import ollama
+
 
 if "logger" not in st.session_state:
-    logger = st.session_state["logger"] = custom_logger()
+    st.session_state["logger"] = custom_logger()
+
+logger = st.session_state["logger"]
 
 model_list = ["llama3", "codellama"]
 print(f"model_list :")
@@ -21,6 +26,11 @@ with st.sidebar:
         options=model_list, index=0,   
         placeholder="Choose an option"
         )
+    st.text(body="get a new model :")
+    st.page_link(page="https://ollama.com/library")
+    
+    if new_model := st.text_input(placeholder="indiquer ici le modele à télécharger"):
+        sp.Popen(args=["ollama", "run", new_model])
 
 st.title("ChatGPT-like clone")
 
@@ -33,7 +43,10 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 
-if prompt := st.chat_input("What is up?"):
+if prompt := st.chat_input("Posez votre question ici..."):
+    
+    logger.info(msg=f'role: user, content: {prompt}')
+
     st.session_state.messages.append(
         {"role": "user", "content": prompt}
         )
@@ -48,6 +61,8 @@ if prompt := st.chat_input("What is up?"):
         ],
     stream=True,
     )
-
+    
     response = st.write_stream(preprocess_stream(stream))
     st.session_state.messages.append({"role": "assistant", "content": response})
+
+    logger.info(msg=f'role: assistant, content: {response}')

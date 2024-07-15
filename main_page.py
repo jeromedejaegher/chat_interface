@@ -11,31 +11,47 @@ Comparatif des offres :
 
 TODO : 
 - logger
-- add context
 
 """
 
-from openai import OpenAI
+import subprocess as sp
 import streamlit as st
+import ollama
+from utils.ollama_utils import (
+    preprocess_stream,
+)
 from utils.logger import custom_logger
 
 if "logger" not in st.session_state:
-    logger = st.session_state["logger"] = custom_logger()
+    st.session_state["logger"] = custom_logger()
 
+logger = st.session_state["logger"]
 
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
-model_list = client.models.list()
+model_list = ["llama3", "codellama"]
 print(f"model_list :")
-print(f"{[model.id for model in model_list.data]}")
-model_list = sorted([model.id for model in model_list.data if "gpt" in model.id])
+print([model["model"] for model in ollama.list()["models"]])
+model_list = sorted(
+    model["model"] for model in ollama.list()["models"]
+    )
 
 with st.sidebar:
-    st.session_state["openai_model"] = st.selectbox(
+    st.session_state["ai_model"] = st.selectbox(
         label="Model to use", 
         options=model_list, index=0,   
         placeholder="Choose an option"
         )
+    st.text(body="get a new model :")
+    st.page_link(
+        label="available models", 
+        page="https://ollama.com/library"
+        )
+    
+    if new_model := st.text_input(
+        label="download new model",
+        placeholder="indiquer ici le modele à télécharger"
+        ):
+        sp.Popen(args=["ollama", "pull", new_model])
+        logger.info(f"sending 'olama pull {new_model}' command")
 
 st.title("ChatGPT-like clone")
 
@@ -48,19 +64,26 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 
-if prompt := st.chat_input("What is up?"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
+if prompt := st.chat_input("Posez votre question ici..."):
+    
+    logger.info(msg=f'role: user, content: {prompt}')
+
+    st.session_state.messages.append(
+        {"role": "user", "content": prompt}
+        )
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        stream = client.chat.completions.create(
-            model=st.session_state["openai_model"],
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ],
-            stream=True,
-        )
-        response = st.write_stream(stream)
+        stream = ollama.chat(
+    model=st.session_state["ai_model"],
+    messages=[
+        {'role': 'user', 'content': prompt}
+        ],
+    stream=True,
+    )
+    
+    response = st.write_stream(preprocess_stream(stream))
     st.session_state.messages.append({"role": "assistant", "content": response})
+
+    logger.info(msg=f'role: assistant, content: {response}')
