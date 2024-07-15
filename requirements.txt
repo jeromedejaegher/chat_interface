@@ -1,3 +1,4 @@
+pyyaml
 streamlit
 # streamlit_chat
 # openai

@@ -14,12 +14,15 @@ TODO :
 
 """
 
+import os
 import subprocess as sp
+import yaml
 import streamlit as st
 import ollama
 from utils.ollama_utils import (
     preprocess_stream,
 )
+from config.config import ROOT_DIR
 from utils.logger import custom_logger
 
 if "logger" not in st.session_state:
@@ -27,12 +30,23 @@ if "logger" not in st.session_state:
 
 logger = st.session_state["logger"]
 
-model_list = ["llama3", "codellama"]
+if "config.yaml" not in os.listdir(
+    os.path.join(ROOT_DIR, "config")
+    ):
+    sp.run(args=["ollama", "pull", "llama3:latest"])
+    config={"initialized":True}
+    with open(os.path.join(ROOT_DIR, "config", "config.yaml"),"w") as f:
+        yaml.dump(config, f)
+
 print(f"model_list :")
-print([model["model"] for model in ollama.list()["models"]])
-model_list = sorted(
-    model["model"] for model in ollama.list()["models"]
-    )
+try:
+    print([model["model"] for model in ollama.list()["models"]])
+    model_list = sorted(
+        model["model"] for model in ollama.list()["models"]
+        )
+except:
+    model_list = ["llama3", ]
+
 
 with st.sidebar:
     st.session_state["ai_model"] = st.selectbox(
